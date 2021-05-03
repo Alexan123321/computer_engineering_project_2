@@ -1,36 +1,35 @@
-from kitchen_guard_mqtt_client import kitchenGuardMqttClient, z2mMsg
-from paho.mqtt import publish, subscribe
-from enum import Enum
-import json                                                             #json en- and decoding
+from kitchen_guard_mqtt_client import kitchenGuardMqttClient, z2mMsg    #importing the kitchenGuardMQTTClient and the z2mMsg declared in the kitchen_guard_mqtt_client.py file
+from enum import Enum                                                   #importing enumerated types
 
+# Enumerated state type #
 class State(Enum):
     ON = "ON"
     OFF = "OFF"
 
+# TODO: friendlyName logic must be transferred to instantiations in main and objects in the model
+# Friendly name declarations #
 PIR = "0x00158d0005727f3a"
 PLUG = "0xccccccfffee3d7aa"
 LED = "0xbc33acfffe8b8ea8"
 
-
 class kitchenGuardController:
+    kitchenGuardState:State
+    occupancyState:State
+    stoveState:State
+    LEDState:State
+    port:str
+    host:str
+
     def __init__(self):
-        self.occupancyState = State.OFF
-        self.stoveState : State.OFF
-        self.port = 1883
-        self.host = "127.0.0.1"
-        self.myClient = kitchenGuardMqttClient(self.host, self.port, on_message_clbk = self.ctl_on_message)
+        pass
     
     # TODO: Controller-logik skal implementeres her 
     #when publish message is received from the device, then this function is run
     #def on_message(client, userdata, msg):
-    def ctl_on_message(self, msg : z2mMsg):
-        global occupancyState
-        global stoveState
-        global LEDState
-        
+    def ctl_on_message(self, msg : z2mMsg):        
         #if the topic is published by the PIR sensor
         if msg.topic == "zigbee2mqtt/" + PIR:
-            occupancyState = msg.payload["occupancy"]
+            self.occupancyState = msg.payload["occupancy"]
             if msg.payload["occupancy"] == True:
                 self.myClient.publish_msg("zigbee2mqtt/" + LED + "/set/state", "OFF")
             else:
@@ -38,40 +37,44 @@ class kitchenGuardController:
         
         #if the topic is published by the power plug
         elif msg.topic == "zigbee2mqtt/" + PLUG:
-            stoveState = msg.payload["state"]
+            self.stoveState = msg.payload["state"]
         
         #if the topic is published by the LED
         else:
-            LEDState = msg.payload["state"]
+            self.LEDState = msg.payload["state"]
 
-    # TODO: Skal implementeres
-    def startKitchenGuard(self):
+    def start(self, inputPort:int, inputHost:str):
+        self.kitchenGuardState = State.ON
+        self.occupancyState = State.OFF
+        self.stoveState : State.OFF
+        self.port = inputPort
+        self.host = inputHost
+        self.myClient = kitchenGuardMqttClient(self.host, self.port, on_message_clbk = self.ctl_on_message)
+        self.myClient.start()
         pass
 
-    # TODO: Skal implementeres
     def stopKitchenGuard(self):
+        self.kitchenGuardState = State.OFF
+        self.myClient.stop()
+        pass
+
+    # TODO: Skal implementeres - her ligger "timerlogikken"
+    def _startAlarm(self):
         pass
 
     # TODO: Skal implementeres
-    def startAlarm(self):
-        pass
-
-    # TODO: Skal implementeres
-    def stopAlarm(self): 
-        pass
-
-    # TODO: Skal implementeres
-    def turnOnStove(self):
+    def stopAlarm(self):
+        self._turnOffLED()
         pass
 
      # TODO: Skal implementeres
-    def turnOffStove(self):
-        pass
+    def _turnOffStove(self):
+        self.myClient.publish_msg("zigbee2mqtt/" + PLUG + "/set/state", "OFF")
 
-     # TODO: Skal implementeres
-    def turnOnLED(self):
-        pass
+    #TODO: When model is implemented, this function must turn ALL LEDs on
+    def _turnOnLED(self):
+        self.myClient.publish_msg("zigbee2mqtt/" + LED + "/set/state", "ON")
 
-     # TODO: Skal implementeres
-    def turnOffLED(self):
-        pass
+    #TODO: When model is implemented, this function must turn ALL LEDs off
+    def _turnOffLED(self):
+        self.myClient.publish_msg("zigbee2mqtt/" + LED + "/set/state", "OFF")
