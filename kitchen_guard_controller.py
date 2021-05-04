@@ -35,13 +35,13 @@ class kitchenGuardController:
     def ctl_on_message(self, msg:z2mMsg):
         currDevice = self.devicesModel.findDevice(msg.topic)
         print("Controller event received!")
-        if((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == True) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.OFF)):
+        if((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == False) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.OFF)):
             print("Beder om at starte alarm!")
             self.alarmThreadState = State.ON
 
         #Kitchen is no longer empty, but stove is on #TODO: Hvis user 
         elif((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == True) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.ON)): 
-            alarmThreadState = State.ON
+            self.alarmThreadState = State.OFF
 
         if(currDevice.getType() == "plug"):
             print("Stove state updated!")
@@ -69,17 +69,18 @@ class kitchenGuardController:
                 if(int(time.time() >= currentTime + timerLimit)):
                     print("Tænder lys!")
                     self._turnOnLED()
+                    self._startPostemptiveAlarm()
                     break
 
-            #postemptive alarm
-            timerLimit = 2 * 1 #change *1 to *60 to get minutes
-            currentTime = int(time.time())
-            while(self.alarmThreadState == State.ON):
-                time.sleep(1)
-                if(int(time.time() >= currentTime + timerLimit)):
-                    print("Stopper alarm")      
-                    self.stopAlarm()
-                    break
+    def _startPostemptiveAlarm(self):
+        timerLimit = 2 * 1 #change *1 to *60 to get minutes
+        currentTime = int(time.time())
+        while(self.alarmThreadState == State.ON):
+            time.sleep(1)
+            if(int(time.time() >= currentTime + timerLimit)):
+                print("Stopper alarm")      
+                self.stopAlarm()
+                break
 
     def stopAlarm(self):
         self._turnOffStove()
