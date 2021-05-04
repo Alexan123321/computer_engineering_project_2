@@ -9,9 +9,9 @@ port = 1883
 
 def main():
     # Creating zigBee device abstractions #
-    pir = zigbeeDevice("0x00158d0005727f3a", "pir", "kitchen")
-    plug = zigbeeDevice("0xccccccfffee3d7aa", "plug", "kitchen")
-    led = zigbeeDevice("0xbc33acfffe8b8ea8", "led", "office")
+    pir = zigbeeDevice("0x00158d0005727f3a", "pir", "kitchen", "False")
+    plug = zigbeeDevice("0xccccccfffee3d7aa", "plug", "kitchen", "OFF")
+    led = zigbeeDevice("0xbc33acfffe8b8ea8", "led", "office", "OFF")
 
     # Adding these abstractions to the model #
     model = kitchenGuardModel()

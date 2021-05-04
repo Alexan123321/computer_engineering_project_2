@@ -5,8 +5,6 @@ import time
 import threading
 
 # TODO: Needs commenting and CLEANUP
-# TODO: Needs correct implementation of controller logic on _start_alarm function
-# TODO: Needs correct thread implementation - alarmThreadState cannot be accessed from the start alarm function?
 
 # Enumerated state type #
 class State(Enum):
@@ -15,8 +13,8 @@ class State(Enum):
 
 class kitchenGuardController:
     kitchenGuardState:State
-    ctlStoveState:State
     alarmThreadState:State
+    ctlStoveState:State
     port:str
     host:str
 
@@ -27,11 +25,9 @@ class kitchenGuardController:
         self.ctlStoveState = State.OFF
         self.alarmThreadState = State.OFF
         self.devicesModel = inputKitchenGuardModel
-        self.alarmThread = threading.Thread(target = self._startAlarm)
+        self.alarmThread = threading.Thread(target = self._startPreemptiveAlarm)
         self.alarmThread.start()
     
-    #when publish message is received from the device, then this function is run
-    #def on_message(client, userdata, msg):
     def ctl_on_message(self, msg:z2mMsg):
         currDevice = self.devicesModel.findDevice(msg.topic)
         print("Controller event received!")
@@ -39,7 +35,6 @@ class kitchenGuardController:
             print("Beder om at starte alarm!")
             self.alarmThreadState = State.ON
 
-        #Kitchen is no longer empty, but stove is on #TODO: Hvis user 
         elif((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == True) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.ON)): 
             self.alarmThreadState = State.OFF
 
@@ -58,7 +53,7 @@ class kitchenGuardController:
         self.kitchenGuardState = State.OFF
         self.myClient.stop()
 
-    def _startAlarm(self):
+    def _startPreemptiveAlarm(self):
         while(1):
             #preemptive alarm
             timerLimit = 18 * 1 #change *1 to *60 to get minutes
@@ -69,23 +64,27 @@ class kitchenGuardController:
                 if(int(time.time() >= currentTime + timerLimit)):
                     print("Tænder lys!")
                     self._turnOnLED()
-                    self._startPostemptiveAlarm()
+                    self._startAlarm()
                     break
 
-    def _startPostemptiveAlarm(self):
-        timerLimit = 2 * 1 #change *1 to *60 to get minutes
+    def _startAlarm(self):
+        timerLimit = 30 * 1 #change *1 to *60 to get minutes
         currentTime = int(time.time())
         while(self.alarmThreadState == State.ON):
             time.sleep(1)
             if(int(time.time() >= currentTime + timerLimit)):
                 print("Stopper alarm")      
-                self.stopAlarm()
                 break
+        self.stopAlarm()
+        
 
     def stopAlarm(self):
-        self._turnOffStove()
-        self._turnOffLED()
-        self.alarmThreadState = State.OFF
+        if(self.alarmThreadState == State.ON):
+            self._turnOffStove()
+            self._turnOffLED()
+            self.alarmThreadState = State.OFF
+        else:
+            self._turnOffLED()
 
     def _turnOffStove(self):
         plugList = self.devicesModel.getDevices("plug")
@@ -95,7 +94,11 @@ class kitchenGuardController:
     def _turnOnLED(self):
         ledList = self.devicesModel.getDevices("led")                           #a sublist of all pir sensors is computed then computed
         for currDevice in ledList:                                              #finally, a sublist of all leds is computed
-            self.myClient.publish_msg("zigbee2mqtt/" + currDevice.getFriendlyName() + "/set/state", "ON") #whereby the client can unsubscribe to all the LEDs in the model
+            if(currDevice.getState() == "True"):
+                self.myClient.publish_msg("zigbee2mqtt/" + currDevice.getFriendlyName() + "/set/state", "ON") #whereby the client can unsubscribe to all the LEDs in the model
+                return
+        for currDevice in ledList:
+                self.myClient.publish_msg("zigbee2mqtt/" + currDevice.getFriendlyName() + "/set/state", "ON") #whereby the client can unsubscribe to all the LEDs in the model
 
     def _turnOffLED(self):
         ledList = self.devicesModel.getDevices("led")                           #a sublist of all pir sensors is computed then computed

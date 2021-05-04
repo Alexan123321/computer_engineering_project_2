@@ -81,6 +81,10 @@ class kitchenGuardMqttClient:
             currZ2mMsg.topic = msg.topic                                            #the topic is then saved in this z2mMsg
             currZ2mMsg.payload = payload                                            #and so is the decoded payload
             currDevice = self.devicesModel.findDevice(currZ2mMsg.topic)
+            if currDevice.getType() == "pir":
+                currDevice.deviceState = currZ2mMsg.payload["occupancy"]
+            else:
+                currDevice.deviceState = currZ2mMsg.payload["state"]
             self.__on_message_clbk(currZ2mMsg)                                      #finally, the __on_message_clbk function, defined in the controller,                                                                        #is called with the z2mMsg that has just been defined
 
     # publish_msg function # 
