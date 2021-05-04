@@ -16,13 +16,16 @@ class State(Enum):
 class kitchenGuardController:
     kitchenGuardState:State
     ctlStoveState:State
-    alarmThreadState:int
+    alarmThreadState:State
     port:str
     host:str
 
     devicesModel:kitchenGuardModel
 
     def __init__(self, inputKitchenGuardModel:kitchenGuardModel):
+        self.kitchenGuardState = State.ON
+        self.ctlStoveState = State.OFF
+        self.alarmThreadState = State.OFF
         self.devicesModel = inputKitchenGuardModel
         self.alarmThread = threading.Thread(target = self._startAlarm)
         self.alarmThread.start()
@@ -30,18 +33,15 @@ class kitchenGuardController:
     #when publish message is received from the device, then this function is run
     #def on_message(client, userdata, msg):
     def ctl_on_message(self, msg:z2mMsg):
-        #Kitchen is empty and stove is on
         currDevice = self.devicesModel.findDevice(msg.topic)
         print("Controller event received!")
-        #Occupancy status skal lige byttes rundt nedenstående
-        if((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == True) and (self.ctlStoveState == "ON") and (self.alarmThreadState == 0)):
+        if((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == True) and (self.ctlStoveState == State.ON) and (self.alarmThreadState == State.OFF)):
             print("Beder om at starte alarm!")
-            self.alarmThreadState = 1
+            self.alarmThreadState = State.ON
 
-        #Kitchen is no longer empty, but stove is on
-        elif((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == False) and (self.ctlStoveState == "ON") and (self.alarmThreadState == 1)): #Missing:  and (self.alarmThreadState == "ON")
-            print("Beder alarm om at stoppe")
-            alarmThreadState = 0
+        #Kitchen is no longer empty, but stove is on #TODO: Hvis user 
+        elif((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == False) and (self.ctlStoveState == State.ON) and (self.alarmThreadState == State.ON)): 
+            alarmThreadState = State.ON
 
         if(currDevice.getType() == "plug"):
             print("Stove state updated!")
@@ -49,46 +49,41 @@ class kitchenGuardController:
             print(self.ctlStoveState)
 
     def start(self, inputPort:int, inputHost:str):
-        self.kitchenGuardState = State.ON
-        self.ctlStoveState = State.OFF
-        self.alarmThreadState = 0
         self.port = inputPort
         self.host = inputHost
         self.myClient = kitchenGuardMqttClient(self.host, self.port, self.devicesModel, on_message_clbk = self.ctl_on_message)
         self.myClient.start()
-        pass
 
     def stopKitchenGuard(self):
         self.kitchenGuardState = State.OFF
         self.myClient.stop()
-        pass
 
     def _startAlarm(self):
-        #preemptive alarm
-        timerLimit = 18 * 1 #change *1 to *60 to get minutes
-        currentTime = int(time.time())
-        while(self.alarmThreadState == 1):
-            time.sleep(1)
-            if(int(time.time() >= currentTime + timerLimit)):
-                break
-        print("Tænder lys!")
-        self._turnOnLED()
+        while(1):
+            #preemptive alarm
+            timerLimit = 18 * 1 #change *1 to *60 to get minutes
+            currentTime = int(time.time())
+            while(self.alarmThreadState == State.ON):
+                time.sleep(1)
+                if(int(time.time() >= currentTime + timerLimit)):
+                    print("Tænder lys!")
+                    self._turnOnLED()
+                    break
 
-        #postemptive alarm
-        timerLimit = 2 * 1 #change *1 to *60 to get minutes
-        currentTime = int(time.time())
-        while(self.alarmThreadState == 1):
-            time.sleep(1)
-            if(int(time.time() >= currentTime + timerLimit)):
-                break
-        print("Stopper alarm")      
-        self.stopAlarm()
+            #postemptive alarm
+            timerLimit = 2 * 1 #change *1 to *60 to get minutes
+            currentTime = int(time.time())
+            while(self.alarmThreadState == State.ON):
+                time.sleep(1)
+                if(int(time.time() >= currentTime + timerLimit)):
+                    print("Stopper alarm")      
+                    self.stopAlarm()
+                    break
 
     def stopAlarm(self):
         self._turnOffStove()
         self._turnOffLED()
-        self.alarmThreadState = 0
-        self.alarmThread.join()
+        self.alarmThreadState = State.OFF
 
     def _turnOffStove(self):
         plugList = self.devicesModel.getDevices("plug")

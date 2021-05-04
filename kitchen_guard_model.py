@@ -14,13 +14,13 @@ class zigbeeDevice:
         self.deviceType = inputDeviceType
         self.deviceLocation = inputDeviceLocation
 
-    def getFriendlyName(self) -> str:
+    def getFriendlyName(self):
         return self.deviceFriendlyName
 
-    def getType(self) -> str:
+    def getType(self):
         return self.deviceType
 
-    def getLocation(self) -> str:
+    def getLocation(self):
         return self.deviceLocation
 
 class kitchenGuardModel:
@@ -41,8 +41,3 @@ class kitchenGuardModel:
         for currDevice in self.modelDevices:
             if currDevice.deviceFriendlyName in inputTopic:
                 return currDevice
-
-    def getStoveState(self):
-        for currDevice in self.modelDevices:
-            if currDevice.getType == "plug":
-                return currDevice.getState()
