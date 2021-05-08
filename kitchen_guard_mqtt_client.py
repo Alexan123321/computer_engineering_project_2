@@ -1,17 +1,30 @@
 from kitchen_guard_model import kitchenGuardModel                               #importing the kitchenGuardModel
-from paho.mqtt.client import Client as mqttClient                               #importing mqtt client
+from paho.mqtt.client import Client as mqttClient
+from paho.mqtt.client import MQTTMessage as mqtMsg                               #importing mqtt client
 from paho.mqtt import publish, subscribe                                        #importing publish and subscribe capabillities for the mqtt client
 
 from typing import Callable, Optional                                           #importing callable and optional
 import json #json en- and decoding
+from datetime import datetime
 
 # TODO: Needs commenting and clean-up
 
+#TODO: Hvilke events skal sendes til databasen? Er det alle, eller er det kun få udvalgte? 
+#TODO: In mqtt_client implement: 
+#TODO:      1) All stove events must be stored in the database-
+#TODO:      2) Time away from stove on given occation
+#TODO:      3) Frequency of stove absence events
+#TODO:      4) Consider if the web-client should implement the HEUCOD format
+
+
 # Zigbee to MQTT message class #
-# TODO: HEUCOD event class
+# TODO: Needs evaluation event class
 class z2mMsg:
-    topic : str
-    payload : str
+    def __init__(self, inputdeviceFriendlyName:str, inputDeviceType:str, inputDeviceLocation:str, inputDeviceState:str):
+        self.deviceFriendlyName = inputdeviceFriendlyName
+        self.deviceType = inputDeviceType
+        self.deviceLocation = inputDeviceLocation
+        self.deviceState = inputDeviceState   
 
 # Kitchen Guard MQTT client #
 class kitchenGuardMqttClient:
@@ -71,18 +84,39 @@ class kitchenGuardMqttClient:
             self.__client.unsubscribe("zigbee2mqtt/" + currDevice.getFriendlyName) #whereby the client can unsubscribe to all the LEDs in the model
         self.__client.disconnect()                                              #finally, the client disconnects from the host on the port
     
-    # TODO: Needs to be updated to implement a HEUCOD parsing standard
     # __on_message function #
     def __on_message(self, client, userdata, msg):                              #whenever a message is received by the mqtt client, this function is called
         if(self.devicesModel.findDevice(msg.topic)):
-            payload = msg.payload.decode("utf-8")                                   #first the payload is utf-8 decoded
-            payload = json.loads(payload)                                           #then the payload is json-parsed into a dictionary
-            currZ2mMsg = z2mMsg()                                                   #a z2mMsg is instantiated
-            currZ2mMsg.topic = msg.topic                                            #the topic is then saved in this z2mMsg
-            currZ2mMsg.payload = payload                                            #and so is the decoded payload
-            currDevice = self.devicesModel.findDevice(currZ2mMsg.topic)
+            currZ2mMsg = self.__parse(msg)
             self.__on_message_clbk(currZ2mMsg)                                      #finally, the __on_message_clbk function, defined in the controller,                                                                        #is called with the z2mMsg that has just been defined
+        else:
+            pass
+
+    def __parse(self, msg:mqtMsg) -> z2mMsg:
+        payload = msg.payload.decode("utf-8")                                   #first the payload is utf-8 decoded
+        payload = json.loads(payload)                                           #then the payload is json-parsed into a dictionary
+        currDevice = self.devicesModel.findDevice(msg.topic)
+        if currDevice.getType() == "pir":
+                currDevice.deviceState = payload["occupancy"]
+        else:
+            currDevice.deviceState = payload["state"]
+        currZ2mMsg = z2mMsg(currDevice.getFriendlyName(),                       #a z2mMsg is instantiated
+                            currDevice.getType(), 
+                            currDevice.getLocation(), 
+                            currDevice.getState())                                                   
+        return currZ2mMsg
+    
+    def serialize(self, inputMsg: z2mMsg) -> str:
+        timestamp = datetime.now()
+        return json.dumps({"device_id": inputMsg.deviceFriendlyName,
+                            "device_type": inputMsg.deviceType,
+                            "measurement": inputMsg.deviceState,
+                            "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                            })
+
 
     # publish_msg function # 
-    def publish_msg(self, topic:str, state:str):                                #takes a topic as string and a state as string as input arguments
-        self.__client.publish(topic, f"{state}")                                #and then publishes this topic with this state                                    
+    def publish_msg(self, topic:str, payload:str):                                #takes a topic as string and a state as string as input arguments
+        self.__client.publish(topic, f"{payload}")                                #and then publishes this topic with this state                                    
+
+    

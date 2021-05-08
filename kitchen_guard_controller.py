@@ -5,8 +5,7 @@ import time
 import threading
 
 # TODO: Needs commenting and CLEANUP
-# TODO: Needs correct implementation of controller logic on _start_alarm function
-# TODO: Needs correct thread implementation - alarmThreadState cannot be accessed from the start alarm function?
+# TODO: zigbeeTopic = "zigbee2mqtt/" i.e definér konstanter
 
 # Enumerated state type #
 class State(Enum):
@@ -15,8 +14,8 @@ class State(Enum):
 
 class kitchenGuardController:
     kitchenGuardState:State
-    ctlStoveState:State
     alarmThreadState:State
+    ctlStoveState:State
     port:str
     host:str
 
@@ -27,25 +26,23 @@ class kitchenGuardController:
         self.ctlStoveState = State.OFF
         self.alarmThreadState = State.OFF
         self.devicesModel = inputKitchenGuardModel
-        self.alarmThread = threading.Thread(target = self._startAlarm)
+        self.alarmThread = threading.Thread(target = self._startPreemptiveAlarm)
         self.alarmThread.start()
     
-    #when publish message is received from the device, then this function is run
-    #def on_message(client, userdata, msg):
     def ctl_on_message(self, msg:z2mMsg):
-        currDevice = self.devicesModel.findDevice(msg.topic)
         print("Controller event received!")
-        if((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == False) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.OFF)):
+        if((msg.deviceType == "pir") and (msg.deviceLocation == "kitchen") and (msg.deviceState == False) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.OFF)):
             print("Beder om at starte alarm!")
             self.alarmThreadState = State.ON
 
-        #Kitchen is no longer empty, but stove is on #TODO: Hvis user 
-        elif((currDevice.getType() == "pir") and (currDevice.getLocation() == "kitchen") and (msg.payload["occupancy"] == True) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.ON)): 
+        elif((msg.deviceType == "pir") and (msg.deviceLocation == "kitchen") and (msg.deviceState == True) and (self.ctlStoveState == "ON") and (self.alarmThreadState == State.ON)): 
             self.alarmThreadState = State.OFF
 
-        if(currDevice.getType() == "plug"):
+        if(msg.deviceType == "plug"):
             print("Stove state updated!")
-            self.ctlStoveState = msg.payload["state"]
+            self.ctlStoveState = msg.deviceState
+            #TODO: Here must the current state of the stove be forwarded to the mqtt_client, which forwards it to the web_client
+            self.myClient.publish_msg("cep2/request/store_event", self.myClient.serialize(msg)) #Being tested once database is running
             print(self.ctlStoveState)
 
     def start(self, inputPort:int, inputHost:str):
@@ -58,7 +55,7 @@ class kitchenGuardController:
         self.kitchenGuardState = State.OFF
         self.myClient.stop()
 
-    def _startAlarm(self):
+    def _startPreemptiveAlarm(self):
         while(1):
             #preemptive alarm
             timerLimit = 18 * 1 #change *1 to *60 to get minutes
@@ -69,23 +66,29 @@ class kitchenGuardController:
                 if(int(time.time() >= currentTime + timerLimit)):
                     print("Tænder lys!")
                     self._turnOnLED()
-                    self._startPostemptiveAlarm()
+                    self._startAlarm()
                     break
+        #TODO: Here must the interval of abesence be sent to the mqtt_client which forwards it to the web_client
 
-    def _startPostemptiveAlarm(self):
+    def _startAlarm(self):
         timerLimit = 2 * 1 #change *1 to *60 to get minutes
         currentTime = int(time.time())
         while(self.alarmThreadState == State.ON):
             time.sleep(1)
             if(int(time.time() >= currentTime + timerLimit)):
                 print("Stopper alarm")      
-                self.stopAlarm()
                 break
+        #TODO: Here must the interval of absence be sent to the mqtt_client which forwards it to the web_client
+        self.stopAlarm()
+        
 
     def stopAlarm(self):
-        self._turnOffStove()
-        self._turnOffLED()
-        self.alarmThreadState = State.OFF
+        if(self.alarmThreadState == State.ON):
+            self._turnOffStove()
+            self._turnOffLED()
+            self.alarmThreadState = State.OFF
+        else:
+            self._turnOffLED()
 
     def _turnOffStove(self):
         plugList = self.devicesModel.getDevices("plug")
@@ -93,9 +96,20 @@ class kitchenGuardController:
             self.myClient.publish_msg("zigbee2mqtt/" + currDevice.getFriendlyName() + "/set/state", "OFF")
 
     def _turnOnLED(self):
-        ledList = self.devicesModel.getDevices("led")                           #a sublist of all pir sensors is computed then computed
-        for currDevice in ledList:                                              #finally, a sublist of all leds is computed
-            self.myClient.publish_msg("zigbee2mqtt/" + currDevice.getFriendlyName() + "/set/state", "ON") #whereby the client can unsubscribe to all the LEDs in the model
+        pirList = self.devicesModel.getDevices("pir")                           #a sublist of all pir sensors is computed then computed
+        for currPir in pirList:                                              #finally, a sublist of all leds is computed
+            if(currPir.getState() == True):
+                print("There are people in the house!")
+                ledList = self.devicesModel.getDevices("led")
+                for currLed in ledList:
+                    print("Turning on light at location!")
+                    if currPir.getLocation() == currLed.getLocation():
+                        self.myClient.publish_msg("zigbee2mqtt/" + currLed.getFriendlyName() + "/set/state", "ON") #whereby the client can unsubscribe to all the LEDs in the model
+                        return
+        ledList = self.devicesModel.getDevices("led")
+        print("No people found in house... Turning ON all LEDs...")
+        for currDevice in ledList:
+                self.myClient.publish_msg("zigbee2mqtt/" + currDevice.getFriendlyName() + "/set/state", "ON") #whereby the client can unsubscribe to all the LEDs in the model
 
     def _turnOffLED(self):
         ledList = self.devicesModel.getDevices("led")                           #a sublist of all pir sensors is computed then computed

@@ -9,15 +9,22 @@ port = 1883
 
 def main():
     # Creating zigBee device abstractions #
-    pir = zigbeeDevice("0x00158d0005727f3a", "pir", "kitchen")
-    plug = zigbeeDevice("0xccccccfffee3d7aa", "plug", "kitchen")
-    led = zigbeeDevice("0xbc33acfffe8b8ea8", "led", "office")
+    pirAlex = zigbeeDevice("0x00158d0005727f3a", "pir", "office", "False")
+    ledAlex = zigbeeDevice("0xbc33acfffe8b8ea8", "led", "office", "OFF")
+    pirChris = zigbeeDevice("0x00158d0005729f18", "pir", "kids_room", "False")
+    ledChris = zigbeeDevice("0xbc33acfffe8b8e62", "led", "kids_room", "False")
+    pirHenrik = zigbeeDevice("0x00158d000572a346", "pir", "kitchen", "False")
+    
+    plug = zigbeeDevice("0xccccccfffee3d7aa", "plug", "kitchen", "OFF")
 
     # Adding these abstractions to the model #
     model = kitchenGuardModel()
-    model.addDevice(pir)
+    model.addDevice(pirAlex)
+    model.addDevice(ledAlex)
+    model.addDevice(pirChris)
+    model.addDevice(ledChris)
+    model.addDevice(pirHenrik)
     model.addDevice(plug)
-    model.addDevice(led)
 
     # Creating a the kitchenGuardController #
     controller = kitchenGuardController(model)
