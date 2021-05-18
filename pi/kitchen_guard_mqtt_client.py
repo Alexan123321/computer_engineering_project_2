@@ -82,9 +82,9 @@ class KitchenGuardMqttClient:
         self.connection_established = True
 
     # When the MQTT client disconnects, this function is called.
-    def __on_disconnect(self, client, userdata, flags, rc):
+    def __on_disconnect(self, client, userdata, flags):
         # Which prints the status code to the terminal,
-        print("Disconnected with result code " + str(rc))
+        print("MQTT Client disconnected")
         # and updates the connection variable to "False"
         self.connection_established = False
 
@@ -122,16 +122,18 @@ class KitchenGuardMqttClient:
         # Otherwise it stops the thread listening for messages,
         self.__client.loop_stop()
         # and unsubscribes to the power plug.
-        self.__client.unsubscribe("zigbee2mqtt/" + (self.devicesModel.get_devices("plug")).get_friendly_name)
+        plug_list = self.devicesModel.get_devices("plug")
+        for currDevice in plug_list:
+            self.__client.unsubscribe("zigbee2mqtt/" + currDevice.get_friendly_name())
         # Then a sublist of all pir sensors is computed then computed,
         pir_list = self.devicesModel.get_devices("pir")
         # and, the client unsubscribes to all the PIR sensors in the model. This process is then iterated for all the
         # PIRs and all the LEDs.
         for currDevice in pir_list:
-            self.__client.unsubscribe("zigbee2mqtt/" + currDevice.get_friendly_name)
+            self.__client.unsubscribe("zigbee2mqtt/" + currDevice.get_friendly_name())
         led_list = self.devicesModel.get_devices("led")
         for currDevice in led_list:
-            self.__client.unsubscribe("zigbee2mqtt/" + currDevice.get_friendly_name)
+            self.__client.unsubscribe("zigbee2mqtt/" + currDevice.get_friendly_name())
             # Finally, the client disconnects.
         self.__client.disconnect()
     

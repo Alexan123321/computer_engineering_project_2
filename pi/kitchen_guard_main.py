@@ -35,9 +35,9 @@ def main():
     while controller.kitchenGuardState == State.ON:
         sleep(1)
 
-    user_input_thread.join()
-
     print("Exiting Kitchen Guard...")
+    
+    user_input_thread.join()
 
 
 # Driver function #
