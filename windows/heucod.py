@@ -1,3 +1,12 @@
+# Heucod implementation by Jorge Miranda, Postdoc. 
+# Github: https://github.com/jmiranda-au/cep2heucod  
+# USAGE # 
+# Heucod is an event standard used on the Raspberry Pi to convert MQTT messages into a format that allows for multiple # databases to interface with the system. 
+# As the developers have not coded the file themselves or developed the standard, this file will not be commented. The # reader is, however, urged to visit the 
+# documentation by Stefan Wagner, "HEUCOD draft recommendation", 2020. import json from copy import deepcopy from dataclasses import dataclass from datetime import datetime, 
+# timezone from enum import Enum from typing import Any, Union from uuid import UUID
+
+
 import json
 from copy import deepcopy
 from dataclasses import dataclass
