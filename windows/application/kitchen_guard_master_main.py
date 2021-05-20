@@ -12,7 +12,7 @@ dbUser = "root"
 dbPass = "root"                 
 #password
 
-mqttHost = "192.168.87.104"         
+mqttHost = "192.168.110.94"
 #connect to pi ip address
 mqttPort = 1883                     
 #using TCP (MQTT) port 1883 to communicate over                  
