@@ -162,10 +162,10 @@ class KitchenGuardMqttClient:
         curr_device = self.devicesModel.find_device(msg.topic)
         # If this device is a pir sensor, then the state is loaded via. the "occupancy" key.
         if curr_device.get_type() == "pir":
-            curr_device.deviceState = payload["occupancy"]
+            curr_device.deviceState = str(payload["occupancy"])
         # If it is an LED or the power plug, then the state is loaded via. the "state" key.
         else:
-            curr_device.deviceState = payload["state"]
+            curr_device.deviceState = str(payload["state"])
         # Finally, a new Z2mMsg is returned with the friendly name of the device that sent an event. The type of this
         # device. The location of this device and, lastly, the state of this, as input arguments.
         return Z2mMsg(curr_device.get_friendly_name(), curr_device.get_type(), curr_device.get_location(),

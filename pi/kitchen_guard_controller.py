@@ -79,10 +79,10 @@ class KitchenGuardController:
     # is a Z2mMsg which is the datatype that the application on the Pi is structured around.
     def ctl_on_message(self, msg: Z2mMsg):
         # Whenever a Z2mMsg is received by the controller, a notification is printed to the terminal.
-        print("Controller event received!")
+        print(f"Controller event received from device: {msg.deviceType} in {msg.deviceLocation}\n")
         # If the Z2mMsg is sent from the motion sensor in the kitchen, the user is not in the kitchen, indicated by a
         # "False" state, and the alarm HAS NOT yet been started...
-        if (msg.deviceType == "pir") and (msg.deviceLocation == "kitchen") and (msg.deviceState == False) and (
+        if (msg.deviceType == "pir") and (msg.deviceLocation == "kitchen") and (msg.deviceState == "False") and (
                 self.ctlStoveState == "ON") and (self.alarmThreadState == State.OFF):
             # The preemptive alarm starts.
             print("Starting preemptive alarm!")
@@ -90,7 +90,7 @@ class KitchenGuardController:
             self.alarmThreadState = State.ON
         # If the Z2mMsg is sent from the motion sensor in the kitchen, the user has returned to the kitchen, indicated
         # by a "True" state, and the alarm HAS already been started...
-        elif ((msg.deviceType == "pir") and (msg.deviceLocation == "kitchen") and (msg.deviceState == True) and (
+        elif ((msg.deviceType == "pir") and (msg.deviceLocation == "kitchen") and (msg.deviceState == "True") and (
                 self.ctlStoveState == "ON") and (self.alarmThreadState == State.ON)):
             # Thus, a notification that the preemptive alarm stops is printed to the terminal.
             print("Stopping preemptive alarm!")
@@ -175,7 +175,7 @@ class KitchenGuardController:
     def _start_alarm(self):
         # In this the timer_limit is set to 2 * 60 seconds, i.e 2 minutes. The reason being that the stove should be
         # turned off in 20 minutes, i.e 18 + 2.
-        timer_limit = 2 * 1
+        timer_limit = 5 * 1
         # The time when starting the alarm is stored in a variable called current_time.
         current_time = int(time.time())
         # A counter variable is then set equal to the timer limit.
@@ -239,6 +239,8 @@ class KitchenGuardController:
 
     # This function is the utility function that makes the LEDs turn "ON".
     def _turn_on_led(self):
+        # Boolean people found varible
+        peopleFound = False
         # It uses the get_devices function in the devices model, and asks to return a list containing all the devices
         # of the type "pir", i.e the motion sensor.
         pir_list = self.devicesModel.get_devices("pir")
@@ -246,9 +248,10 @@ class KitchenGuardController:
         # a PIR sensor which has the internal state value of "True".
         for currPir in pir_list:
             # If there are people in the house,
-            if currPir.get_state():
+            if currPir.get_state() == "True":
                 # this is indicated by a printing to the terminal.
                 print("There are people in the house!")
+                print(f"Location: {currPir.get_location()}\n") #SKAL FJERNES TIL SIDST
                 # Then a list of all the LEDs is generated,
                 led_list = self.devicesModel.get_devices("led")
                 # which is iterated over,
@@ -260,9 +263,12 @@ class KitchenGuardController:
                         # Finally, the LED in the room occupied by people is turned "ON", by applying the publish
                         # function defined in the client, where the topic is: zigbee2mqtt/friendly_name/set/state and
                         # the payload is "ON".
+                        print(f"Location: {currLed.get_location()}\n") #SKAL FJERNES TIL SIDST
                         self.myClient.publish_msg("zigbee2mqtt/" + currLed.get_friendly_name() + "/set/state", "ON")
                         # At last, the function returns.
-                        return
+                        peopleFound = True
+        if(peopleFound == True):
+            return
         # If no-one was located in the house, then all the LEDs are being turned on, by, first, making a list of all the
         # LEDs,
         led_list = self.devicesModel.get_devices("led")
