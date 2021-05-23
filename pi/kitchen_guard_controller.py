@@ -129,7 +129,7 @@ class KitchenGuardController:
         while 1:
             # The timer_limit is the upper boundary for how long the user can be away from the stove. As can be seen,
             # the timer is 18 seconds times 60 seconds, thus 18 minutes.
-            timer_limit = 18 * 1
+            timer_limit = 18 * 60
             # int(time.time()) gets the current time and converts it to an int. This number is then saved in the current
             # time variable. The current_time variable is used as a baseline, for when the preemptive alarm was started.
             current_time = int(time.time())
@@ -175,7 +175,7 @@ class KitchenGuardController:
     def _start_alarm(self):
         # In this the timer_limit is set to 2 * 60 seconds, i.e 2 minutes. The reason being that the stove should be
         # turned off in 20 minutes, i.e 18 + 2.
-        timer_limit = 5 * 1
+        timer_limit = 2 * 60
         # The time when starting the alarm is stored in a variable called current_time.
         current_time = int(time.time())
         # A counter variable is then set equal to the timer limit.
