@@ -9,7 +9,7 @@ The project was developed by:
 * Alexander Stæhr Johansen
 
 ## Introduction: 
-The system is designed to run in a home setting, providing visual cues and turning off the stove in case of extended leave from the kitchen. The system also collects data regarding the usage of the stove, and allows the user to access this through a web user interface.
+The Kitchen Guard system is designed to run in a home setting, providing visual cues and turning off the stove in case of extended leave from the kitchen. The system also collects data regarding the usage of the stove, and allows the user to access this through a web user interface.
 
 ### Specification:
 Requirements specfication: https://www.overleaf.com/read/xfrytywrwbxm  
